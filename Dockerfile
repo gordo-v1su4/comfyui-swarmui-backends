@@ -27,6 +27,9 @@ RUN if [ -f "/workspace/RunPod_Install.sh" ]; then \
         find /workspace -name "*.sh" -type f; \
     fi
 
+# Install missing dependencies that the script might have missed
+RUN /workspace/ComfyUI/venv/bin/pip install torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
 # 5. Copy the startup script into the container
 COPY start.sh /workspace/start.sh
 RUN chmod +x /workspace/start.sh
