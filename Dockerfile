@@ -18,17 +18,21 @@ RUN cd /workspace && \
     rm /tmp/Comfy_UI_V45.zip && \
     ls -la /workspace/
 
+# Set HF_HOME environment variable as per RunPod instructions
+ENV HF_HOME="/workspace"
+
 # Make the installation script executable and run it
 RUN if [ -f "/workspace/RunPod_Install.sh" ]; then \
         chmod +x /workspace/RunPod_Install.sh && \
+        export HF_HOME="/workspace" && \
         /workspace/RunPod_Install.sh; \
     else \
         echo "RunPod_Install.sh not found, listing files:" && \
         find /workspace -name "*.sh" -type f; \
     fi
 
-# Install missing dependencies that the script might have missed
-RUN /workspace/ComfyUI/venv/bin/pip install torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# Install system packages needed for RunPod setup
+RUN apt-get update && apt-get install -y psmisc && rm -rf /var/lib/apt/lists/*
 
 # 5. Copy the startup script into the container
 COPY start.sh /workspace/start.sh
