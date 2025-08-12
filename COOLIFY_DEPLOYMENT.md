@@ -33,7 +33,7 @@ This guide provides step-by-step instructions for deploying your ComfyUI + Swarm
 - **Base Directory**: `/` (leave as default)
 - **Rate Limit**: Leave empty (optional)
 
-**Note**: Port configuration will appear in the next step after clicking "Continue"
+**Note**: After clicking "Continue", you'll be taken to the General configuration section where you can configure ports, storage, and other settings.
 
 ### Advanced Configuration
 
@@ -63,51 +63,78 @@ Configure the following volume mappings to persist your data:
 
 ## Step 4: Configure Application Settings
 
-After clicking "Continue", you'll see additional configuration options:
+After clicking "Continue", you'll see the "General" configuration section. Configure the following:
 
-### Port Configuration
-- **Port**: Set to `8188` (ComfyUI default port)
-- **Additional Ports**: You may need to add port `7860` for SwarmUI if available
+### Network Configuration
+- **Ports Exposes**: Change from `3000` to `8188` (ComfyUI default port)
+- **Ports Mappings**: Change from `3000:3000` to `8188:8188`
 
-### Resource Configuration
-- **Memory**: Set to 8GB minimum (16GB+ recommended)
-- **CPU**: Set to 4 cores minimum
-- **GPU**: Enable if available
+### Build Configuration
+- **Base Directory**: Keep as `/`
+- **Dockerfile Location**: Keep as `/Dockerfile`
+- **Custom Docker Options**: Add GPU support (optional):
+  ```
+  --runtime=nvidia --gpus all
+  ```
 
-### Environment Variables
-Add the following environment variables:
+## Step 5: Configure Persistent Storage
+
+Navigate to "Persistent Storage" in the left sidebar and add these Volume Mounts:
+
+| Name | Source Path | Destination Path | Description |
+|------|-------------|------------------|-------------|
+| `/workspace/ComfyUI/models` | `/root` (or your preferred path) | `/home/user/comfyui_models` | ComfyUI model files |
+| `/workspace/ComfyUI/output` | `/root` (or your preferred path) | `/home/user/comfyui_output` | Generated images |
+| `/workspace/SwarmUI/Models` | `/root` (or your preferred path) | `/home/user/swarmui_models` | SwarmUI model files |
+| `/workspace/logs` | `/root` (or your preferred path) | `/home/user/comfyui_logs` | Application logs |
+| `/workspace/configs` | `/root` (or your preferred path) | `/home/user/comfyui_configs` | Configuration files |
+
+## Step 6: Configure Resource Limits
+
+Navigate to "Resource Limits" in the left sidebar:
+
+### CPU Configuration
+- **Number of CPUs**: Set to `4` (minimum) or `8` (recommended)
+- **CPU sets to use**: Keep at `8`
+- **CPU Weight**: Keep at `1024`
+
+### Memory Configuration
+- **Soft Memory Limit**: Set to `8GB` (minimum)
+- **Swappiness**: Keep at `60`
+- **Maximum Memory Limit**: Set to `16GB` (recommended)
+- **Maximum Swap Limit**: Keep at `0`
+
+### GPU Configuration
+- **Enable GPU**: Check this option if available
+
+## Step 7: Configure Environment Variables
+
+Navigate to "Environment Variables" in the left sidebar and add:
+
 ```
 CUDA_VISIBLE_DEVICES=0
 HF_HOME=/workspace/huggingface
 DEBIAN_FRONTEND=noninteractive
+NVIDIA_VISIBLE_DEVICES=all
 ```
 
-### Volume Mappings
-Configure the following volume mappings to persist your data:
-
-| Container Path | Host Path | Description |
-|----------------|-----------|-------------|
-| `/workspace/ComfyUI/models` | `/home/user/comfyui_models` | ComfyUI model files |
-| `/workspace/ComfyUI/output` | `/home/user/comfyui_output` | Generated images |
-| `/workspace/SwarmUI/Models` | `/home/user/swarmui_models` | SwarmUI model files |
-| `/workspace/logs` | `/home/user/comfyui_logs` | Application logs |
-| `/workspace/configs` | `/home/user/comfyui_configs` | Configuration files |
-
-## Step 5: Deploy the Application
+## Step 8: Deploy the Application
 
 1. Review all your configuration settings
-2. Click the "Deploy" button
+2. Click the "▷ Deploy" button in the top navigation
 3. Monitor the build process in the logs
 4. Wait for the deployment to complete
 
-## Step 6: Access Your Applications
+## Step 9: Access Your Applications
 
 Once deployed successfully, you can access:
 
 - **ComfyUI**: `http://your-coolify-domain:8188`
 - **SwarmUI**: `http://your-coolify-domain:7860`
 
-## Step 7: Configure SwarmUI with ComfyUI Backend
+**Note**: SwarmUI will be accessible through the same container on port 7860, but you may need to configure port forwarding or access it through the container's internal network.
+
+## Step 10: Configure SwarmUI with ComfyUI Backend
 
 1. Access SwarmUI through your browser
 2. Navigate to "Server" → "Backends" tab
@@ -127,7 +154,7 @@ You can add these arguments to the ExtraArgs field for better performance:
 --use-sage-attention --gpu-only --disable-xformers --disable-opt-split-attention
 ```
 
-## Step 8: Download and Install Models
+## Step 11: Download and Install Models
 
 ### Option 1: Using the Unified Model Downloader (Recommended)
 
@@ -144,7 +171,7 @@ You can add these arguments to the ExtraArgs field for better performance:
 2. Place them in the appropriate directories on your server
 3. Ensure proper file permissions
 
-## Step 9: Verify Installation
+## Step 12: Verify Installation
 
 1. **Test ComfyUI**:
    - Load a model in ComfyUI
@@ -161,18 +188,26 @@ You can add these arguments to the ExtraArgs field for better performance:
 ### Common Issues
 
 #### Build Failures
-- Check the build logs in Coolify
+- Check the build logs in Coolify dashboard
 - Ensure all dependencies are properly specified in the Dockerfile
 - Verify the repository URL is correct
+- Check that the Dockerfile is in the root directory
 
-#### Port Conflicts
-- Ensure ports 8188 and 7860 are not already in use
-- Modify port mappings if necessary
+#### Port Configuration Issues
+- Ensure "Ports Exposes" is set to `8188`
+- Ensure "Ports Mappings" is set to `8188:8188`
+- Check that the port isn't already in use by another application
 
 #### GPU Issues
-- Verify GPU access is enabled in Coolify
+- Verify GPU is enabled in Resource Limits section
 - Check that NVIDIA Container Toolkit is installed on the host
 - Ensure CUDA drivers are up to date
+- Verify Custom Docker Options include `--runtime=nvidia --gpus all`
+
+#### Volume Mount Issues
+- Ensure all volume mounts are properly configured in Persistent Storage
+- Check that source paths exist on the host system
+- Verify file permissions on host directories
 
 #### Model Loading Issues
 - Verify model files are in the correct directories
