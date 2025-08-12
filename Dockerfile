@@ -1,59 +1,48 @@
 # Use a stable PyTorch base image
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
+# Use a standard NVIDIA CUDA base image for better compatibility
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
-# Set the working directory
-WORKDIR /workspace
-
-# Set environment variables
+# Set environment variables to avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
-ENV HF_HOME=/workspace/huggingface
+ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/data/huggingface
 
-# Install necessary packages and dependencies
+# Set up the working directory
+WORKDIR /app
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     wget \
-    nano \
-    unzip \
-    rsync \
-    build-essential \
+    python3.10 \
     python3-pip \
-    && apt-get clean \
+    python3.10-venv \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies for ComfyUI and SwarmUI
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir \
-    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-RUN pip install --no-cache-dir \
-    xformers \
-    triton \
-    deepspeed \
-    accelerate
+# Make python3.10 the default python3
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python3
 
-# Clone ComfyUI and install its dependencies
+# --- ComfyUI Setup ---
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git
-RUN pip install --no-cache-dir -r ComfyUI/requirements.txt
-
+WORKDIR /app/ComfyUI
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+RUN pip install --no-cache-dir -r requirements.txt
 # Install ComfyUI Manager
-RUN cd ComfyUI/custom_nodes && git clone https://github.com/ltdrdata/ComfyUI-Manager.git
+RUN cd custom_nodes && git clone https://github.com/ltdrdata/ComfyUI-Manager.git
 
-# Clone SwarmUI and install its dependencies
+# --- SwarmUI Setup ---
+WORKDIR /app
 RUN git clone https://github.com/mcmonkeyprojects/SwarmUI.git
 RUN cd SwarmUI && chmod +x install.sh && ./install.sh --no-backend
 
-# Copy and set up startup script
-COPY start.sh /workspace/start.sh
-RUN chmod +x /workspace/start.sh
-
-# Install additional dependencies for the startup script
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    lsof \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Expose the necessary ports
+# Expose ports
 EXPOSE 8188 7860
 
-# Command to start the application (can be overridden in Coolify)
-CMD ["/workspace/start.sh"]
+# Create a startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Set the entrypoint to the startup script
+CMD ["/app/start.sh"]
