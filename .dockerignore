@@ -42,7 +42,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Docker
-Dockerfile
-.dockerignore
-docker-compose*.yml
+# IMPORTANT: Include the ComfyUI zip file
+!Comfy_UI_V45.zip
