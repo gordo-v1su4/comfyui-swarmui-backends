@@ -1,38 +1,44 @@
-# Use standard PyTorch base image to avoid corruption issues
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
+# Alternative: Use Ubuntu base to avoid large image corruption
+FROM ubuntu:22.04
 
 # Set the working directory
 WORKDIR /workspace
 
-# Install required packages first
+# Install system dependencies including Python 3.10
 RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-venv \
+    python3-pip \
+    git \
     unzip \
     wget \
     curl \
+    psmisc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and extract the zip file in one layer to reduce image size
+# Set Python 3.10 as default
+RUN ln -s /usr/bin/python3.10 /usr/bin/python
+
+# Copy and extract the zip file
 COPY Comfy_UI_V45.zip /tmp/
 RUN cd /workspace && \
     unzip -q /tmp/Comfy_UI_V45.zip && \
     rm /tmp/Comfy_UI_V45.zip && \
     ls -la /workspace/
 
-# Set HF_HOME environment variable as per RunPod instructions
+# Set environment variables
 ENV HF_HOME="/workspace"
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
-# Make the installation script executable and run it with proper environment
+# Make the installation script executable and run it
 RUN if [ -f "/workspace/RunPod_Install.sh" ]; then \
         chmod +x /workspace/RunPod_Install.sh && \
-        export HF_HOME="/workspace" && \
-        export HF_HUB_ENABLE_HF_TRANSFER=1 && \
         bash -c "/workspace/RunPod_Install.sh"; \
     else \
-        echo "RunPod_Install.sh not found, listing files:" && \
-        find /workspace -name "*.sh" -type f; \
+        echo "RunPod_Install.sh not found"; \
     fi
 
-# 5. Copy the startup script into the container
+# Copy the startup script
 COPY start.sh /workspace/start.sh
 RUN chmod +x /workspace/start.sh
 
