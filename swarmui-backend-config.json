@@ -1,0 +1,57 @@
+{
+  "backend_name": "ComfyUI Local",
+  "backend_type": "ComfyUI Self-Starting",
+  "configuration": {
+    "start_script": "/workspace/ComfyUI/main.py",
+    "working_directory": "/workspace/ComfyUI",
+    "extra_args": [
+      "--listen",
+      "0.0.0.0",
+      "--port",
+      "8188",
+      "--use-sage-attention",
+      "--gpu-only",
+      "--disable-xformers",
+      "--disable-opt-split-attention"
+    ],
+    "environment_variables": {
+      "CUDA_VISIBLE_DEVICES": "0",
+      "HF_HOME": "/workspace/huggingface",
+      "PYTHONPATH": "/workspace/ComfyUI"
+    }
+  },
+  "performance_optimization": {
+    "description": "Performance optimization arguments for better GPU utilization",
+    "recommended_args": [
+      "--use-sage-attention",
+      "--gpu-only",
+      "--disable-xformers",
+      "--disable-opt-split-attention",
+      "--preview-method",
+      "auto"
+    ],
+    "memory_optimization": [
+      "--lowvram",
+      "--cpu-vae"
+    ],
+    "speed_optimization": [
+      "--use-split-cross-attention",
+      "--use-quad-cross-attention"
+    ]
+  },
+  "volume_mappings": {
+    "models": "/workspace/ComfyUI/models",
+    "output": "/workspace/ComfyUI/output",
+    "configs": "/workspace/configs",
+    "logs": "/workspace/logs"
+  },
+  "ports": {
+    "comfyui": 8188,
+    "swarmui": 7860
+  },
+  "health_check": {
+    "url": "http://localhost:8188/system_stats",
+    "timeout": 30,
+    "retry_attempts": 3
+  }
+}
