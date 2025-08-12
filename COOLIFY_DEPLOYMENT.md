@@ -30,7 +30,10 @@ This guide provides step-by-step instructions for deploying your ComfyUI + Swarm
 - **Git Repository**: `https://github.com/gordo-v1su4/comfyui-swarmui-backends.git`
 - **Branch**: `main`
 - **Build Pack**: Select "Dockerfile"
-- **Port**: `8188` (ComfyUI default port)
+- **Base Directory**: `/` (leave as default)
+- **Rate Limit**: Leave empty (optional)
+
+**Note**: Port configuration will appear in the next step after clicking "Continue"
 
 ### Advanced Configuration
 
@@ -58,21 +61,53 @@ Configure the following volume mappings to persist your data:
 - **CPU**: 4 cores minimum
 - **GPU**: Enable GPU access if available
 
-## Step 4: Deploy the Application
+## Step 4: Configure Application Settings
+
+After clicking "Continue", you'll see additional configuration options:
+
+### Port Configuration
+- **Port**: Set to `8188` (ComfyUI default port)
+- **Additional Ports**: You may need to add port `7860` for SwarmUI if available
+
+### Resource Configuration
+- **Memory**: Set to 8GB minimum (16GB+ recommended)
+- **CPU**: Set to 4 cores minimum
+- **GPU**: Enable if available
+
+### Environment Variables
+Add the following environment variables:
+```
+CUDA_VISIBLE_DEVICES=0
+HF_HOME=/workspace/huggingface
+DEBIAN_FRONTEND=noninteractive
+```
+
+### Volume Mappings
+Configure the following volume mappings to persist your data:
+
+| Container Path | Host Path | Description |
+|----------------|-----------|-------------|
+| `/workspace/ComfyUI/models` | `/home/user/comfyui_models` | ComfyUI model files |
+| `/workspace/ComfyUI/output` | `/home/user/comfyui_output` | Generated images |
+| `/workspace/SwarmUI/Models` | `/home/user/swarmui_models` | SwarmUI model files |
+| `/workspace/logs` | `/home/user/comfyui_logs` | Application logs |
+| `/workspace/configs` | `/home/user/comfyui_configs` | Configuration files |
+
+## Step 5: Deploy the Application
 
 1. Review all your configuration settings
 2. Click the "Deploy" button
 3. Monitor the build process in the logs
 4. Wait for the deployment to complete
 
-## Step 5: Access Your Applications
+## Step 6: Access Your Applications
 
 Once deployed successfully, you can access:
 
 - **ComfyUI**: `http://your-coolify-domain:8188`
 - **SwarmUI**: `http://your-coolify-domain:7860`
 
-## Step 6: Configure SwarmUI with ComfyUI Backend
+## Step 7: Configure SwarmUI with ComfyUI Backend
 
 1. Access SwarmUI through your browser
 2. Navigate to "Server" → "Backends" tab
@@ -92,7 +127,7 @@ You can add these arguments to the ExtraArgs field for better performance:
 --use-sage-attention --gpu-only --disable-xformers --disable-opt-split-attention
 ```
 
-## Step 7: Download and Install Models
+## Step 8: Download and Install Models
 
 ### Option 1: Using the Unified Model Downloader (Recommended)
 
@@ -109,7 +144,7 @@ You can add these arguments to the ExtraArgs field for better performance:
 2. Place them in the appropriate directories on your server
 3. Ensure proper file permissions
 
-## Step 8: Verify Installation
+## Step 9: Verify Installation
 
 1. **Test ComfyUI**:
    - Load a model in ComfyUI
