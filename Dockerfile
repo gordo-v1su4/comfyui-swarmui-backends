@@ -1,4 +1,3 @@
-# Use a stable PyTorch base image
 # Use a standard NVIDIA CUDA base image for better compatibility
 FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
@@ -27,8 +26,10 @@ RUN ln -sf /usr/bin/python3.10 /usr/bin/python3
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git
 WORKDIR /app/ComfyUI
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# The requirements.txt file will handle the installation of torch and other dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
 # Install ComfyUI Manager
 RUN cd custom_nodes && git clone https://github.com/ltdrdata/ComfyUI-Manager.git
 
