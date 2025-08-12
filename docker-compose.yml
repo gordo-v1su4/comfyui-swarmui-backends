@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  comfyui-swarmui:
+    build: .
+    container_name: comfyui-swarmui
+    ports:
+      - "8188:8188"  # ComfyUI port
+      - "7860:7860"  # SwarmUI port
+    volumes:
+      - ./models:/workspace/models
+      - ./outputs:/workspace/outputs
+      - ./configs:/workspace/configs
+      - ./logs:/workspace/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/workspace/huggingface
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      bash -c "
+        echo 'Starting ComfyUI...' &&
+        cd /workspace/ComfyUI &&
+        python main.py --listen 0.0.0.0 --port 8188 &
+        echo 'Starting SwarmUI...' &&
+        cd /workspace/SwarmUI &&
+        python main.py --listen 0.0.0.0 --port 7860 &
+        wait
+      "
