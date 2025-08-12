@@ -1,48 +1,47 @@
-# Use a standard NVIDIA CUDA base image for better compatibility
-FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+# Use the same base image as the RunPod template for consistency
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 
-# Set environment variables
+# Set environment variables from the script
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV HF_HOME=/data/huggingface
+ENV HF_HOME="/workspace/huggingface"
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
 # Set work directory
 WORKDIR /workspace
 
-# Install system dependencies from the RunPod script
+# 1. Install System Dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     wget \
-    python3.10 \
-    python3-pip \
-    build-essential \
     psmisc \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.10 the default and upgrade pip
-RUN ln -sf /usr/bin/python3.10 /usr/bin/python3 && \
-    python3 -m pip install --no-cache-dir --upgrade pip
-
-# --- ComfyUI Setup ---
+# 2. Clone ComfyUI and set it as the working directory
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git
 WORKDIR /workspace/ComfyUI
 
-# Install ComfyUI dependencies, but EXCLUDE torch to install it manually
-RUN awk '!/torch/' requirements.txt > requirements_no_torch.txt
-RUN pip install --no-cache-dir -r requirements_no_torch.txt
+# 3. Create and activate a Python virtual environment (good practice from the script)
+RUN python3 -m venv venv
+ENV PATH="/workspace/ComfyUI/venv/bin:$PATH"
 
-# Install the SPECIFIC torch version and custom wheels from the script
-# Using cu121 to match the base image's CUDA version
+# 4. Upgrade pip and install requirements WITHOUT the conflicting torch versions
+RUN python -m pip install --no-cache-dir --upgrade pip
+# We filter out torch, torchvision, and torchaudio to install them manually later
+RUN awk '!/torch/' requirements.txt > temp_requirements.txt
+RUN pip install --no-cache-dir -r temp_requirements.txt
+
+# 5. Install the EXACT custom-compiled libraries from the video
+# Note: Using the cu121 index to match the base Docker image's CUDA version for max compatibility
 RUN pip install --no-cache-dir torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 RUN pip install --no-cache-dir https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl
 RUN pip install --no-cache-dir https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/sageattention-2.1.1-cp310-cp310-linux_x86_64.whl
 RUN pip install --no-cache-dir https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/xformers-0.0.30+3abeaa9e.d20250427-cp310-cp310-linux_x86_64.whl
 
-# Install other high-level dependencies
-RUN pip install --no-cache-dir insightface onnxruntime-gpu accelerate diffusers triton deepspeed
+# 6. Install other key Python packages from the script
+RUN pip install --no-cache-dir insightface onnxruntime-gpu triton deepspeed accelerate diffusers
 
-# --- Install Custom Nodes from the script ---
+# 7. Clone all Custom Nodes
 WORKDIR /workspace/ComfyUI/custom_nodes
 RUN git clone https://github.com/ltdrdata/ComfyUI-Manager.git
 RUN git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
@@ -50,23 +49,21 @@ RUN git clone https://github.com/Gourieff/ComfyUI-ReActor.git
 RUN git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
 RUN git clone https://github.com/city96/ComfyUI-GGUF.git && pip install -r ComfyUI-GGUF/requirements.txt
 
-# Run install scripts for custom nodes that require it
+# 8. Run the install scripts for specific custom nodes
 RUN cd ComfyUI-ReActor && python install.py
 RUN cd ComfyUI-Impact-Pack && python install.py
 
-# --- SwarmUI Setup ---
+# 9. Clone and set up SwarmUI
 WORKDIR /workspace
 RUN git clone https://github.com/mcmonkeyprojects/SwarmUI.git
 RUN cd SwarmUI && chmod +x install.sh && ./install.sh --no-backend
 
-# --- Final Setup ---
-WORKDIR /workspace
-# Copy a startup script that will launch both services
+# 10. Copy the startup script into the container
 COPY start.sh /workspace/start.sh
 RUN chmod +x /workspace/start.sh
 
-# Expose ports
+# Expose ports for both services
 EXPOSE 8188 7860
 
-# Command to run the startup script
+# Set the command to our startup script
 CMD ["/workspace/start.sh"]
