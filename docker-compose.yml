@@ -2,34 +2,38 @@ version: '3.8'
 
 services:
   comfyui-swarmui:
-    build: .
+    image: gordov1su4/comfy-swarm-server:latest
     container_name: comfyui-swarmui
     ports:
       - "8188:8188"  # ComfyUI port
       - "7860:7860"  # SwarmUI port
-    volumes:
-      - ./models:/workspace/models
-      - ./outputs:/workspace/outputs
-      - ./configs:/workspace/configs
-      - ./logs:/workspace/logs
     environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
       - HF_HOME=/workspace/huggingface
-    restart: unless-stopped
+    volumes:
+      # ComfyUI dirs
+      - comfyui_models:/workspace/ComfyUI/models
+      - comfyui_output:/workspace/ComfyUI/output
+      - comfyui_input:/workspace/ComfyUI/input
+      - comfyui_custom_nodes:/workspace/ComfyUI/custom_nodes
+      # SwarmUI data (adjust if your install uses a different path)
+      - swarmui_data:/workspace/SwarmUI/data
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
-    command: >
-      bash -c "
-        echo 'Starting ComfyUI...' &&
-        cd /workspace/ComfyUI &&
-        python main.py --listen 0.0.0.0 --port 8188 &
-        echo 'Starting SwarmUI...' &&
-        cd /workspace/SwarmUI &&
-        python main.py --listen 0.0.0.0 --port 7860 &
-        wait
-      "
+    restart: unless-stopped
+    # Use the container's default CMD (start.sh) to launch both services
+
+volumes:
+  comfyui_models:
+  comfyui_output:
+  comfyui_input:
+  comfyui_custom_nodes:
+  swarmui_data:
