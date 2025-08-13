@@ -39,5 +39,9 @@ RUN chmod +x /workspace/start.sh
 # Expose the port for ComfyUI backend
 EXPOSE 8188
 
+# Add a simple healthcheck to verify ComfyUI is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=10 \
+  CMD curl -fsS http://127.0.0.1:8188/ >/dev/null || exit 1
+
 # Set the command to our startup script
 CMD ["/workspace/start.sh"]
