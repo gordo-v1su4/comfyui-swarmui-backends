@@ -12,8 +12,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /workspace
 
 # Install system dependencies (psmisc for fuser command)
-RUN echo 'APT::Get::Cache-Start 25165824;' > /etc/apt/apt.conf.d/99-no-cache && \
-    apt-get update && apt-get install -y \
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
     psmisc \
     && rm -rf /var/lib/apt/lists/*
 
