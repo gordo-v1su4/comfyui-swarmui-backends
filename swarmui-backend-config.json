@@ -1,28 +1,26 @@
 {
-  "backend_name": "ComfyUI Local",
-  "backend_type": "ComfyUI Self-Starting",
+  "backend_name": "ComfyUI Home Server Backend",
+  "backend_type": "ComfyUI Remote",
+  "description": "ComfyUI backend running on home server via Coolify, based on RunPod V45 setup",
   "configuration": {
-    "start_script": "/workspace/ComfyUI/main.py",
-    "working_directory": "/workspace/ComfyUI",
-    "extra_args": [
-      "--listen",
-      "0.0.0.0",
-      "--port",
-      "8188",
-      "--use-sage-attention",
-      "--gpu-only",
-      "--disable-xformers",
-      "--disable-opt-split-attention"
-    ],
-    "environment_variables": {
-      "CUDA_VISIBLE_DEVICES": "0",
-      "HF_HOME": "/workspace/huggingface",
-      "PYTHONPATH": "/workspace/ComfyUI"
+    "url": "http://your-server-ip:8188",
+    "timeout": 300,
+    "max_concurrent_requests": 4,
+    "retry_attempts": 3,
+    "retry_delay": 5,
+    "health_check_endpoint": "/system_stats",
+    "api_endpoints": {
+      "queue": "/queue",
+      "prompt": "/prompt",
+      "history": "/history",
+      "system_stats": "/system_stats",
+      "embeddings": "/embeddings",
+      "extensions": "/extensions"
     }
   },
   "performance_optimization": {
-    "description": "Performance optimization arguments for better GPU utilization",
-    "recommended_args": [
+    "description": "Optimized for RunPod V45 setup with SageAttention and custom optimizations",
+    "server_args": [
       "--use-sage-attention",
       "--gpu-only",
       "--disable-xformers",
@@ -30,28 +28,123 @@
       "--preview-method",
       "auto"
     ],
-    "memory_optimization": [
-      "--lowvram",
-      "--cpu-vae"
-    ],
+    "memory_optimization": {
+      "high_vram": [
+        "--use-sage-attention",
+        "--gpu-only"
+      ],
+      "medium_vram": [
+        "--use-sage-attention",
+        "--lowvram"
+      ],
+      "low_vram": [
+        "--lowvram",
+        "--cpu-vae",
+        "--disable-opt-split-attention"
+      ]
+    },
     "speed_optimization": [
       "--use-split-cross-attention",
-      "--use-quad-cross-attention"
+      "--use-quad-cross-attention",
+      "--use-sage-attention"
+    ]
+  },
+  "features": {
+    "custom_nodes": [
+      "ComfyUI-Manager",
+      "ComfyUI_IPAdapter_plus", 
+      "ComfyUI-ReActor",
+      "ComfyUI-GGUF",
+      "ComfyUI-Impact-Pack"
+    ],
+    "optimizations": [
+      "SageAttention 2.1.1",
+      "Flash Attention 2.7.4",
+      "Custom XFormers 0.0.30",
+      "PyTorch 2.7.0 with CUDA 12.8"
+    ],
+    "workflows_included": [
+      "Multi-Talk AI (kijai)",
+      "ReActor Face Swapping",
+      "3D Figure Transfer",
+      "Clothing Transfer"
     ]
   },
   "volume_mappings": {
     "models": "/workspace/ComfyUI/models",
     "output": "/workspace/ComfyUI/output",
-    "configs": "/workspace/configs",
-    "logs": "/workspace/logs"
+    "input": "/workspace/ComfyUI/input",
+    "custom_nodes": "/workspace/ComfyUI/custom_nodes",
+    "huggingface_cache": "/workspace"
   },
   "ports": {
-    "comfyui": 8188,
-    "swarmui": 7860
+    "comfyui_api": 8188
   },
   "health_check": {
-    "url": "http://localhost:8188/system_stats",
+    "url": "http://your-server-ip:8188/system_stats",
     "timeout": 30,
-    "retry_attempts": 3
+    "retry_attempts": 5,
+    "interval": 30,
+    "start_period": 120
+  },
+  "environment_variables": {
+    "HF_HOME": "/workspace",
+    "HF_HUB_ENABLE_HF_TRANSFER": "1",
+    "HF_XET_CHUNK_CACHE_SIZE_BYTES": "90737418240",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "deployment": {
+    "platform": "Coolify",
+    "base_image": "runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04",
+    "container_name": "comfyui-swarmui-backend",
+    "restart_policy": "unless-stopped",
+    "gpu_support": true,
+    "nvidia_runtime": true
+  },
+  "model_management": {
+    "download_scripts": [
+      "Download_IP_Adapters_Fast.py",
+      "Download_Models.py", 
+      "Download_Reactor_Models.py"
+    ],
+    "model_directories": {
+      "checkpoints": "models/checkpoints",
+      "loras": "models/loras",
+      "vae": "models/vae",
+      "controlnet": "models/controlnet",
+      "clip_vision": "models/clip_vision",
+      "ipadapter": "models/ipadapter",
+      "insightface": "models/insightface"
+    }
+  },
+  "swarmui_integration": {
+    "connection_type": "Remote Backend",
+    "setup_instructions": [
+      "1. Deploy this container using Coolify",
+      "2. Wait for container to be healthy (check logs)",
+      "3. In SwarmUI, add new backend with type 'ComfyUI'",
+      "4. Set backend URL to http://your-server-ip:8188",
+      "5. Test connection and verify models are loaded"
+    ],
+    "recommended_settings": {
+      "max_concurrent_generations": 4,
+      "timeout_seconds": 300,
+      "auto_retry": true,
+      "load_balancing": false
+    }
+  },
+  "troubleshooting": {
+    "common_issues": {
+      "connection_failed": "Check if port 8188 is accessible and container is running",
+      "out_of_memory": "Use memory optimization args or reduce batch size",
+      "slow_performance": "Enable speed optimization args",
+      "models_not_loading": "Check volume mounts and model file permissions"
+    },
+    "diagnostic_commands": [
+      "docker logs comfyui-swarmui-backend",
+      "docker exec -it comfyui-swarmui-backend nvidia-smi",
+      "curl http://your-server-ip:8188/system_stats"
+    ]
   }
 }

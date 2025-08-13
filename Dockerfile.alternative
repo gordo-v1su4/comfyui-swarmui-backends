@@ -1,0 +1,63 @@
+# Alternative Dockerfile with more robust base image handling
+# Use Ubuntu base and install PyTorch manually to avoid corruption issues
+FROM ubuntu:22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV HF_HOME="/workspace"
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+
+# Set the working directory
+WORKDIR /workspace
+
+# Install system dependencies and Python
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
+    unzip \
+    wget \
+    curl \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symbolic link for python
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install PyTorch and related packages
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Copy and extract the zip file in one layer to reduce image size
+COPY Comfy_UI_V45.zip /tmp/
+RUN cd /workspace && \
+    unzip -q /tmp/Comfy_UI_V45.zip && \
+    rm /tmp/Comfy_UI_V45.zip && \
+    ls -la /workspace/
+
+# Make the installation script executable and run it with proper environment
+RUN if [ -f "/workspace/RunPod_Install.sh" ]; then \
+        chmod +x /workspace/RunPod_Install.sh && \
+        bash -c "/workspace/RunPod_Install.sh"; \
+    else \
+        echo "RunPod_Install.sh not found, listing files:" && \
+        find /workspace -name "*.sh" -type f; \
+    fi
+
+# Copy the startup script into the container
+COPY start.sh /workspace/start.sh
+RUN chmod +x /workspace/start.sh
+
+# Expose the port for ComfyUI backend
+EXPOSE 8188
+
+# Add a simple healthcheck to verify ComfyUI is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=10 \
+  CMD curl -fsS http://127.0.0.1:8188/ >/dev/null || exit 1
+
+# Set the command to our startup script
+CMD ["/workspace/start.sh"]

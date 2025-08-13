@@ -1,9 +1,0 @@
-# Minimal .dockerignore to avoid issues
-.git
-README.md
-COOLIFY_DEPLOYMENT.md
-.vscode/
-.idea/
-*.log
-__pycache__/
-node_modules/

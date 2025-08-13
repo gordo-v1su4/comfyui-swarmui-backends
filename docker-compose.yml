@@ -1,26 +1,32 @@
 version: '3.8'
 
 services:
-  comfyui-swarmui:
-    image: gordov1su4/comfy-swarm-server:latest
-    container_name: comfyui-swarmui
+  comfyui-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: comfyui-swarmui-backend
     ports:
-      - "8188:8188"  # ComfyUI port
-      - "7860:7860"  # SwarmUI port
+      - "8188:8188"  # ComfyUI API port for SwarmUI backend
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
-      - HF_HOME=/workspace/huggingface
+      - HF_HOME=/workspace
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      - HF_XET_CHUNK_CACHE_SIZE_BYTES=90737418240
     volumes:
-      # ComfyUI dirs
+      # ComfyUI model storage
       - comfyui_models:/workspace/ComfyUI/models
       - comfyui_output:/workspace/ComfyUI/output
       - comfyui_input:/workspace/ComfyUI/input
       - comfyui_custom_nodes:/workspace/ComfyUI/custom_nodes
-      # SwarmUI data (adjust if your install uses a different path)
-      - swarmui_data:/workspace/SwarmUI/data
+      # HuggingFace cache
+      - huggingface_cache:/workspace
+      # Logs and configs
+      - ./configs:/workspace/configs:ro
+      - ./logs:/workspace/logs
     deploy:
       resources:
         reservations:
@@ -29,11 +35,34 @@ services:
               count: all
               capabilities: [gpu]
     restart: unless-stopped
-    # Use the container's default CMD (start.sh) to launch both services
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    # Labels for Coolify
+    labels:
+      - "coolify.managed=true"
+      - "coolify.name=comfyui-swarmui-backend"
+      - "coolify.type=service"
+      - "traefik.enable=true"
+      - "traefik.http.routers.comfyui.rule=Host(`comfyui.${DOMAIN:-localhost}`)"
+      - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
 
 volumes:
   comfyui_models:
+    driver: local
   comfyui_output:
+    driver: local
   comfyui_input:
+    driver: local
   comfyui_custom_nodes:
-  swarmui_data:
+    driver: local
+  huggingface_cache:
+    driver: local
+
+networks:
+  default:
+    name: coolify
+    external: true
