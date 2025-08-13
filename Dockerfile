@@ -1,8 +1,7 @@
-# Use Ubuntu base image to avoid Docker layer corruption issues
-# This provides a more stable foundation than the problematic PyTorch images
-FROM ubuntu:22.04
+# Use the exact RunPod PyTorch base image as specified in instructions
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 
-# Set environment variables for HuggingFace and optimization
+# Set environment variables exactly as RunPod
 ENV HF_HOME="/workspace"
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 ENV HF_XET_CHUNK_CACHE_SIZE_BYTES=90737418240
@@ -12,132 +11,129 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set the working directory
 WORKDIR /workspace
 
-# Install system dependencies and Python
+# Install system dependencies (psmisc for fuser command)
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
-    git \
-    curl \
-    wget \
-    unzip \
     psmisc \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symbolic link for python
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Copy the ComfyUI zip file and extract it
-COPY Comfy_UI_V45.zip /tmp/
-RUN cd /workspace && \
-    unzip -q /tmp/Comfy_UI_V45.zip && \
-    rm /tmp/Comfy_UI_V45.zip
-
 # Clone ComfyUI repository
-RUN git clone https://github.com/comfyanonymous/ComfyUI && \
-    cd /workspace/ComfyUI && \
+RUN git clone https://github.com/comfyanonymous/ComfyUI
+
+# Setup ComfyUI
+RUN cd /workspace/ComfyUI && \
     git reset --hard && \
     git stash && \
     git pull --force
 
-# Create and activate virtual environment, upgrade pip
+# Create and activate virtual environment
 RUN cd /workspace/ComfyUI && \
-    python -m venv venv && \
+    python -m venv venv
+
+# Upgrade pip
+RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
     python -m pip install --upgrade pip
-
-# Install PyTorch first (following RunPod V45 specifications)
-RUN cd /workspace/ComfyUI && \
-    . venv/bin/activate && \
-    pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # Install ComfyUI requirements
 RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
     pip install -r requirements.txt
 
-# Install optimized packages (RunPod V45 optimizations)
+# Uninstall and reinstall torch exactly as RunPod
 RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
-    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl || echo "Flash attention install failed, continuing..." && \
-    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/sageattention-2.1.1-cp310-cp310-linux_x86_64.whl || echo "SageAttention install failed, continuing..." && \
-    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/xformers-0.0.30+3abeaa9e.d20250427-cp310-cp310-linux_x86_64.whl || echo "XFormers install failed, continuing..."
+    pip uninstall torch torchvision xformers torchaudio --yes && \
+    pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
-# Install additional required packages
+# Install flash attention and optimizations
 RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
-    pip install insightface onnxruntime-gpu requests piexif huggingface_hub hf_transfer accelerate diffusers && \
-    pip install triton || echo "Triton install failed, continuing..." && \
-    pip install deepspeed || echo "DeepSpeed install failed, continuing..."
+    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl && \
+    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/sageattention-2.1.1-cp310-cp310-linux_x86_64.whl && \
+    pip install https://huggingface.co/MonsterMMORPG/SECourses_Premium_Flash_Attention/resolve/main/xformers-0.0.30+3abeaa9e.d20250427-cp310-cp310-linux_x86_64.whl
 
-# Clone and setup custom nodes
+# Install additional packages
+RUN cd /workspace/ComfyUI && \
+    . venv/bin/activate && \
+    pip install insightface && \
+    pip install onnxruntime-gpu
+
+# Clone custom nodes
 RUN cd /workspace/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Manager && \
     git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus && \
     git clone https://github.com/Gourieff/ComfyUI-ReActor && \
-    git clone https://github.com/city96/ComfyUI-GGUF && \
-    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack
+    git clone https://github.com/city96/ComfyUI-GGUF
 
-# Setup ComfyUI-GGUF
+# Update ComfyUI-GGUF
 RUN cd /workspace/ComfyUI/custom_nodes/ComfyUI-GGUF && \
     git reset --hard && \
     git stash && \
-    git pull --force && \
-    cd /workspace/ComfyUI && \
-    . venv/bin/activate && \
-    cd custom_nodes/ComfyUI-GGUF && \
-    pip install -r requirements.txt || echo "GGUF requirements install failed, continuing..."
+    git pull --force
 
-# Setup ComfyUI-Manager
+# Update ComfyUI-Manager
 RUN cd /workspace/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git reset --hard && \
     git stash && \
     git pull --force
 
-# Setup ComfyUI-ReActor
+# Install ReActor
+RUN cd /workspace/ComfyUI/custom_nodes/ComfyUI-ReActor && \
+    cd /workspace/ComfyUI && \
+    . venv/bin/activate && \
+    cd /workspace/ComfyUI/custom_nodes/ComfyUI-ReActor && \
+    python install.py
+
+# Clone and install Impact Pack
+RUN cd /workspace/ComfyUI/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack && \
+    cd ComfyUI-Impact-Pack && \
+    cd /workspace/ComfyUI && \
+    . venv/bin/activate && \
+    cd /workspace/ComfyUI/custom_nodes/ComfyUI-Impact-Pack && \
+    python install.py
+
+# Install additional pip packages
 RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
-    cd custom_nodes/ComfyUI-ReActor && \
-    python install.py || echo "ReActor install failed, continuing..."
+    pip install piexif && \
+    pip install requests && \
+    pip install triton && \
+    pip install deepspeed && \
+    pip install huggingface_hub hf_transfer && \
+    pip install accelerate && \
+    pip install diffusers
 
-# Setup ComfyUI-Impact-Pack
+# Install GGUF requirements
 RUN cd /workspace/ComfyUI && \
     . venv/bin/activate && \
-    cd custom_nodes/ComfyUI-Impact-Pack && \
-    python install.py || echo "Impact-Pack install failed, continuing..."
+    cd /workspace/ComfyUI/custom_nodes/ComfyUI-GGUF && \
+    pip install -r requirements.txt
 
-# Copy model download scripts and run if available
+# Copy model download scripts if available
+COPY Download_Reactor_Models.py* /workspace/
+COPY Download_IP_Adapters_Fast.py* /workspace/
+COPY Download_Models.py* /workspace/
+
+# Run reactor model download if script exists
 RUN if [ -f "/workspace/Download_Reactor_Models.py" ]; then \
-        cd /workspace/ComfyUI && \
-        . venv/bin/activate && \
         cd /workspace && \
-        python Download_Reactor_Models.py || echo "Model download failed, continuing..."; \
+        python Download_Reactor_Models.py || echo "Reactor model download failed, continuing..."; \
     fi
 
-# Copy startup script and make it executable
-COPY start.sh /workspace/start.sh
-RUN chmod +x /workspace/start.sh
-
-# Create a SwarmUI-compatible startup script
+# Create startup script exactly as RunPod
 RUN echo '#!/bin/bash\n\
+apt update\n\
+apt install -y psmisc\n\
+fuser -k 3000/tcp 2>/dev/null || true\n\
+cd /workspace/ComfyUI/venv\n\
+source bin/activate\n\
 cd /workspace/ComfyUI\n\
-source venv/bin/activate\n\
-export HF_HOME="/workspace"\n\
-export HF_HUB_ENABLE_HF_TRANSFER=1\n\
-export CUDA_VISIBLE_DEVICES=0\n\
-fuser -k 8188/tcp 2>/dev/null || true\n\
-echo "Starting ComfyUI for SwarmUI backend..."\n\
-python main.py --listen 0.0.0.0 --port 8188 --use-sage-attention --gpu-only --disable-xformers --disable-opt-split-attention\n\
-' > /workspace/start_comfyui.sh && chmod +x /workspace/start_comfyui.sh
+python main.py --listen 0.0.0.0 --port 3000 --use-sage-attention\n\
+' > /workspace/start.sh && chmod +x /workspace/start.sh
 
-# Expose the port for ComfyUI backend (SwarmUI compatible)
-EXPOSE 8188
+# Expose the port (using 3000 as per RunPod)
+EXPOSE 3000
 
-# Add healthcheck for SwarmUI integration
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-  CMD curl -f http://localhost:8188/system_stats || exit 1
-
-# Set the command to start ComfyUI for SwarmUI backend
-CMD ["/workspace/start_comfyui.sh"]
+# Set the command to start ComfyUI
+CMD ["/workspace/start.sh"]

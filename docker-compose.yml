@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: comfyui-swarmui-backend
     ports:
-      - "8188:8188"  # ComfyUI API port for SwarmUI backend
+      - "3000:3000"  # ComfyUI port as per RunPod
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -36,7 +36,7 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/system_stats"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -48,7 +48,7 @@ services:
       - "coolify.type=service"
       - "traefik.enable=true"
       - "traefik.http.routers.comfyui.rule=Host(`comfyui.${DOMAIN:-localhost}`)"
-      - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
+      - "traefik.http.services.comfyui.loadbalancer.server.port=3000"
 
 volumes:
   comfyui_models:
